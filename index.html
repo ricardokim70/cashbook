@@ -342,7 +342,7 @@ function showSel(apps){
     try{cnt=JSON.parse(localStorage.getItem(dk(i))||'[]').length;}catch(e){}
     var dt=new Date(a.created).toLocaleDateString('ko-KR');
     h+='<div class="app-item" onclick="selApp('+i+')">';
-    h+='<div><div class="ai-name">&#128210; '+a.title+'</div>';
+    h+='<div><div class="ai-name">📒 '+a.title+'</div>';
     h+='<div class="ai-info">&#44144;&#47000; '+cnt+'&#44148; &middot; '+dt+'</div></div>';
     h+='<div class="ai-arr">&#8250;</div></div>';
   }
