@@ -16,7 +16,7 @@
 body{font-family:-apple-system,'Segoe UI','Apple SD Gothic Neo',sans-serif;background:#f5f7fa;overscroll-behavior:none}
 :root{--gd:#1b3a2a;--gm:#2e6b47;--gl:#e8f5ed;--gold:#f4c430;--red:#c0392b;--rl:#fdecea;--blu:#1565c0;--bl:#e3f0ff}
 
-#setup{position:fixed;inset:0;background:linear-gradient(160deg,#1b3a2a,#2e6b47);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 28px;z-index:999}
+#setup{position:fixed;inset:0;background:linear-gradient(160deg,#1b3a2a,#2e6b47);display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px 28px;z-index:999}
 #setup .logo{font-size:60px;margin-bottom:18px}
 #setup h1{color:#fff;font-size:26px;font-weight:900;margin-bottom:8px;text-align:center}
 #setup p{color:#90c9a0;font-size:14px;text-align:center;margin-bottom:32px;line-height:1.65}
@@ -137,9 +137,35 @@ body{font-family:-apple-system,'Segoe UI','Apple SD Gothic Neo',sans-serif;backg
 @media screen{
   #print-header{display:none}
 }
+
+/* 앱 선택/생성 화면 */
+#select-screen{position:fixed;inset:0;background:linear-gradient(160deg,#1b3a2a,#2e6b47);display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;z-index:998;overflow-y:auto}
+#select-screen h2{color:#fff;font-size:22px;font-weight:900;margin-bottom:6px;text-align:center}
+#select-screen .sub{color:#90c9a0;font-size:13px;margin-bottom:24px;text-align:center}
+.app-list{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.app-item{background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.2);border-radius:14px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:background .15s}
+.app-item:active{background:rgba(255,255,255,0.22)}
+.app-item .ai-name{color:#fff;font-size:16px;font-weight:800}
+.app-item .ai-count{color:#90c9a0;font-size:12px;margin-top:2px}
+.app-item .ai-arrow{color:#f4c430;font-size:20px}
+.sel-divider{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:20px}
+.sel-divider span{color:rgba(255,255,255,0.4);font-size:12px;white-space:nowrap}
+.sel-divider::before,.sel-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.2)}
+#new-app-btn{width:100%;padding:15px;border-radius:14px;border:2px dashed rgba(255,255,255,0.35);background:transparent;color:#f4c430;font-size:16px;font-weight:800;cursor:pointer}
 </style>
 </head>
 <body>
+
+<!-- 앱 선택 화면 -->
+<div id="select-screen">
+  <div class="logo" style="font-size:56px;margin-bottom:16px">📒</div>
+  <h2>금전출납부</h2>
+  <div class="sub">사용할 출납부를 선택하세요</div>
+  <div class="app-list" id="app-list"></div>
+  <div class="sel-divider"><span>또는</span></div>
+  <button id="new-app-btn" onclick="showNewForm()">＋ 새 출납부 만들기</button>
+</div>
+
 
 <div id="setup">
   <div class="logo">📒</div>
@@ -306,15 +332,57 @@ function injectManifest(title) {
 }
 
 // ── STORAGE ──
-function sKey(){ return 'cb3_main'; }  // 데이터 키 고정 (제목과 무관하게 하나의 저장소 사용)
+// ── 앱 관리 ──
+// cb_apps: [{title, created}] 배열
+// cb_data_N: N번째 앱의 거래 데이터
+// cb_cur: 현재 사용 중인 앱 인덱스
+let curApp = -1;
+function getApps(){ try{ return JSON.parse(localStorage.getItem('cb_apps')||'[]'); }catch{ return []; } }
+function saveApps(apps){ localStorage.setItem('cb_apps', JSON.stringify(apps)); }
+function sKey(){ return 'cb_data_' + curApp; }
+
+// 기존 데이터 마이그레이션 (cb3_main, cb_title → cb_apps 구조로)
+function migrateOldData(){
+  const apps = getApps();
+  if(apps.length > 0) return; // 이미 마이그레이션됨
+  const oldTitle = localStorage.getItem('cb_title');
+  const oldData = localStorage.getItem('cb3_main') || localStorage.getItem('cb3_과테 여행') || localStorage.getItem('cb3_과태여행');
+  // 다른 이름 키들도 탐색
+  const allKeys = Object.keys(localStorage);
+  let foundData = null, foundTitle = oldTitle || null;
+  for(const k of allKeys){
+    if(k.startsWith('cb3_') && k !== 'cb3_main'){
+      foundData = localStorage.getItem(k);
+      if(!foundTitle) foundTitle = k.replace('cb3_','');
+      break;
+    }
+  }
+  if(!foundData) foundData = localStorage.getItem('cb3_main');
+  if(foundData || foundTitle){
+    const newApps = [{title: foundTitle || '기본 출납부', created: Date.now()}];
+    saveApps(newApps);
+    localStorage.setItem('cb_data_0', foundData || '[]');
+    console.log('마이그레이션 완료:', foundTitle);
+  }
+}
 function load(){ try{ entries=JSON.parse(localStorage.getItem(sKey())||'[]'); }catch{entries=[];} }
 function save(){ localStorage.setItem(sKey(),JSON.stringify(entries)); }
 
 // ── SETUP ──
+function showNewForm(){
+  document.getElementById('select-screen').style.display='none';
+  document.getElementById('setup').style.display='flex';
+  setTimeout(()=>document.getElementById('t-input').focus(), 200);
+}
+
 function doSetup(){
   const val=document.getElementById('t-input').value.trim();
   if(!val){document.getElementById('t-input').focus();return;}
-  localStorage.setItem('cb_title',val);
+  // 새 앱 추가
+  const apps = getApps();
+  apps.push({title: val, created: Date.now()});
+  saveApps(apps);
+  curApp = apps.length - 1;
   launchApp(val);
 }
 document.getElementById('t-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSetup();});
@@ -323,6 +391,7 @@ function launchApp(title){
   injectManifest(title);
   registerSW();
   document.getElementById('setup').style.display='none';
+  document.getElementById('select-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('hdr-title').textContent='📒 '+title;
   document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
@@ -331,9 +400,54 @@ function launchApp(title){
 }
 
 window.addEventListener('load',()=>{
-  const t=localStorage.getItem('cb_title');
-  if(t) launchApp(t);
+  migrateOldData();
+  const apps = getApps();
+  // URL 파라미터로 앱 지정됐으면 바로 실행 (?app=0)
+  const params = new URLSearchParams(location.search);
+  const appParam = params.get('app');
+  if(appParam !== null && apps[parseInt(appParam)]){
+    curApp = parseInt(appParam);
+    launchApp(apps[curApp].title);
+    return;
+  }
+  // 앱이 1개면 바로 실행
+  if(apps.length === 1){
+    curApp = 0;
+    launchApp(apps[0].title);
+    return;
+  }
+  // 앱이 여러개 or 없으면 선택/생성 화면
+  if(apps.length > 1){
+    showSelectScreen(apps);
+  }
+  // 앱이 없으면 신규 생성 화면
+  document.getElementById('setup').style.display='flex';
 });
+
+function showSelectScreen(apps){
+  document.getElementById('setup').style.display='none';
+  const screen = document.getElementById('select-screen');
+  const list = document.getElementById('app-list');
+  list.innerHTML = apps.map((app, i) => {
+    let count = 0;
+    try{ count = JSON.parse(localStorage.getItem('cb_data_'+i)||'[]').length; }catch{}
+    return \`<div class="app-item" onclick="selectApp(\${i})">
+      <div>
+        <div class="ai-name">📒 \${app.title}</div>
+        <div class="ai-count">거래 \${count}건 · \${new Date(app.created).toLocaleDateString('ko-KR')}</div>
+      </div>
+      <div class="ai-arrow">›</div>
+    </div>\`;
+  }).join('');
+  screen.style.display='flex';
+}
+
+function selectApp(idx){
+  const apps = getApps();
+  if(!apps[idx]) return;
+  curApp = idx;
+  launchApp(apps[idx].title);
+}
 
 // ── FORMAT ──
 function fmt(n,d=2){ return isNaN(n)?'—':n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
