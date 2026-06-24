@@ -413,28 +413,33 @@ function launchApp(title){
   setTimeout(checkBanner, 2000);
 }
 
-window.addEventListener('load',()=>{
+window.addEventListener('load',function(){
   migrateOldData();
-  const apps = getApps();
-  // URL 파라미터로 앱 지정됐으면 바로 실행 (?app=0)
-  const params = new URLSearchParams(location.search);
-  const appParam = params.get('app');
+  var apps = getApps();
+
+  // 1) URL 파라미터로 앱 지정 (?app=0)
+  var params = new URLSearchParams(location.search);
+  var appParam = params.get('app');
   if(appParam !== null && apps[parseInt(appParam)]){
     curApp = parseInt(appParam);
     launchApp(apps[curApp].title);
     return;
   }
-  // 앱이 1개면 바로 실행
+
+  // 2) 저장된 앱 1개 → 바로 실행
   if(apps.length === 1){
     curApp = 0;
     launchApp(apps[0].title);
     return;
   }
-  // 앱이 여러개 or 없으면 선택/생성 화면
+
+  // 3) 저장된 앱 여러 개 → 선택 화면
   if(apps.length > 1){
     showSelectScreen(apps);
+    return;
   }
-  // 앱이 없으면 신규 생성 화면
+
+  // 4) 저장된 앱 없음 → 신규 생성 화면
   document.getElementById('setup').style.display='flex';
 });
 
@@ -442,20 +447,22 @@ function showSelectScreen(apps){
   document.getElementById('setup').style.display='none';
   const screen = document.getElementById('select-screen');
   const list = document.getElementById('app-list');
-  list.innerHTML = apps.map((app, i) => {
+  let html = '';
+  apps.forEach(function(app, i){
     let count = 0;
-    try{ count = JSON.parse(localStorage.getItem('cb_data_'+i)||'[]').length; }catch{}
-    return \`<div class="app-item" onclick="selectApp(\${i})">
-      <div>
-        <div class="ai-name">📒 \${app.title}</div>
-        <div class="ai-count">거래 \${count}건 · \${new Date(app.created).toLocaleDateString('ko-KR')}</div>
-      </div>
-      <div class="ai-arrow">›</div>
-    </div>\`;
-  }).join('');
+    try{ count = JSON.parse(localStorage.getItem('cb_data_'+i)||'[]').length; }catch(e){}
+    const date = new Date(app.created).toLocaleDateString('ko-KR');
+    html += '<div class="app-item" onclick="selectApp('+i+')">';
+    html += '<div>';
+    html += '<div class="ai-name">\uD83D\uDCD2 '+app.title+'</div>';
+    html += '<div class="ai-count">\uAC70\uB798 '+count+'\uAC74 \xB7 '+date+'</div>';
+    html += '</div>';
+    html += '<div class="ai-arrow">\u203A</div>';
+    html += '</div>';
+  });
+  list.innerHTML = html;
   screen.style.display='flex';
 }
-
 function selectApp(idx){
   const apps = getApps();
   if(!apps[idx]) return;
