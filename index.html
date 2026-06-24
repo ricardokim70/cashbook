@@ -125,7 +125,7 @@ body{font-family:-apple-system,'Segoe UI','Apple SD Gothic Neo',sans-serif;backg
 /* PDF 출력용 스타일 */
 @media print{
   body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  #hdr,#add-btn,#print-btn,#ibanner,#sheet-ov,#del-ov,.det-acts,.card-detail{display:none!important}
+  #hdr,#add-btn,#print-btn,#ibanner,#sheet-ov,#del-ov,.det-acts,.card-detail,#hdr-summary{display:none!important}
   #app{display:block!important;max-width:100%!important}
   #list{padding:0!important}
   #print-header{display:block!important}
@@ -160,13 +160,21 @@ body{font-family:-apple-system,'Segoe UI','Apple SD Gothic Neo',sans-serif;backg
       <button id="add-btn" onclick="openForm()">+ 추가</button>
       <button id="print-btn" onclick="printPDF()">🖨 출력</button>
     </div>
-    <div class="pill-row">
-      <div class="pill"><div class="pill-lbl">잔액 USD</div><div class="pill-val" id="p-ubal">$0.00</div></div>
-      <div class="pill" style="border-left-color:#90c9a0"><div class="pill-lbl">잔액 GTQ</div><div class="pill-val sm" id="p-gbal">Q0.00</div></div>
-    </div>
-    <div class="pill-row">
-      <div class="pill" style="border-left-color:#7ecba1"><div class="pill-lbl">총수입</div><div class="pill-val sm" id="p-inc">$0.00</div></div>
-      <div class="pill" style="border-left-color:#f08080"><div class="pill-lbl">총지출</div><div class="pill-val sm" id="p-exp">$0.00</div></div>
+    <!-- 합계 요약 (헤더 하단) -->
+    <div id="hdr-summary" style="background:rgba(0,0,0,0.2);border-radius:12px;padding:10px 14px;margin-top:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:#90c9a0;font-size:11px;font-weight:700">총 수입</span>
+        <div style="text-align:right"><span style="color:#7ecba1;font-weight:800;font-size:14px" id="s-inc">$0.00</span> <span style="color:#4a8a5a;font-size:11px" id="s-ginc">Q0.00</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="color:#90c9a0;font-size:11px;font-weight:700">총 지출</span>
+        <div style="text-align:right"><span style="color:#f08080;font-weight:800;font-size:14px" id="s-exp">$0.00</span> <span style="color:#8a4a4a;font-size:11px" id="s-gexp">Q0.00</span></div>
+      </div>
+      <div style="border-top:1px solid rgba(255,255,255,0.15);margin:6px 0"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="color:#fff;font-size:12px;font-weight:900">순 잔액</span>
+        <div style="text-align:right"><span style="font-weight:900;font-size:17px" id="s-bal">$0.00</span> <span style="font-size:11px;color:#90c9a0" id="s-gbal">Q0.00</span></div>
+      </div>
     </div>
   </div>
   
@@ -248,9 +256,13 @@ let entries=[], editId=null, delId=null, fType='income', fCur='usd', expId=null,
 function registerSW() {
   if (!('serviceWorker' in navigator)) return;
   const swCode = `
-    const CACHE='cb-cache-v1';
+    const CACHE='cb-v202606241344';
     self.addEventListener('install', e => self.skipWaiting());
-    self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+    self.addEventListener('activate', e => e.waitUntil(
+      caches.keys().then(keys => Promise.all(
+        keys.filter(k => k !== 'cb-v202606241344').map(k => caches.delete(k))
+      )).then(() => self.clients.claim())
+    ));
     self.addEventListener('fetch', e => {
       e.respondWith(
         caches.open(CACHE).then(cache =>
@@ -294,7 +306,7 @@ function injectManifest(title) {
 }
 
 // ── STORAGE ──
-function sKey(){ return 'cb3_'+(localStorage.getItem('cb_title')||'default'); }
+function sKey(){ return 'cb3_main'; }  // 데이터 키 고정 (제목과 무관하게 하나의 저장소 사용)
 function load(){ try{ entries=JSON.parse(localStorage.getItem(sKey())||'[]'); }catch{entries=[];} }
 function save(){ localStorage.setItem(sKey(),JSON.stringify(entries)); }
 
@@ -334,11 +346,15 @@ function render(){
   const rows=entries.map(e=>{ uBal+=e.type==='income'?e.ua:-e.ua; return{...e,uBal,gBal:uBal*RATE}; });
   const totInc=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.ua,0);
   const totExp=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.ua,0);
-  const ub=document.getElementById('p-ubal');
-  ub.textContent='$'+fmt(uBal); ub.className='pill-val'+(uBal<0?' neg':'');
-  document.getElementById('p-gbal').textContent='Q'+fmt(uBal*RATE);
-  document.getElementById('p-inc').textContent='$'+fmt(totInc);
-  document.getElementById('p-exp').textContent='$'+fmt(totExp);
+  // 헤더 합계 요약 업데이트
+  document.getElementById('s-inc').textContent='$'+fmt(totInc);
+  document.getElementById('s-ginc').textContent='Q'+fmt(totInc*RATE);
+  document.getElementById('s-exp').textContent='$'+fmt(totExp);
+  document.getElementById('s-gexp').textContent='Q'+fmt(totExp*RATE);
+  const sb=document.getElementById('s-bal');
+  sb.textContent='$'+fmt(uBal);
+  sb.style.color=uBal>=0?'#f4c430':'#ff7070';
+  document.getElementById('s-gbal').textContent='Q'+fmt(uBal*RATE);
   const list=document.getElementById('list');
   if(!rows.length){
     list.innerHTML='<div class="empty"><div class="ei">📭</div><div class="et">내역이 없습니다</div><div class="es">+ 추가 버튼으로 시작하세요</div></div>';
@@ -369,13 +385,7 @@ function render(){
       </div>
     </div>`;
   });
-  h+=`<div class="totals">
-    <div class="tot-title">📊 전체 합계</div>
-    <div class="tot-row"><div class="tot-lbl">총 수입</div><div class="tot-r"><div class="tot-usd" style="color:#7ecba1">$${fmt(totInc)}</div><div class="tot-gtq">Q${fmt(totInc*RATE)}</div></div></div>
-    <div class="tot-row"><div class="tot-lbl">총 지출</div><div class="tot-r"><div class="tot-usd" style="color:#f08080">$${fmt(totExp)}</div><div class="tot-gtq">Q${fmt(totExp*RATE)}</div></div></div>
-    <hr class="tot-div">
-    <div class="tot-row"><div class="tot-lbl" style="font-weight:800;color:#fff">순 잔액</div><div class="tot-r"><div class="tot-usd" style="color:${uBal>=0?'#f4c430':'#ff7070'};font-size:18px">$${fmt(uBal)}</div><div class="tot-gtq" style="color:#7a9a7a">Q${fmt(uBal*RATE)}</div></div></div>
-  </div>`;
+
   list.innerHTML=h;
 }
 
