@@ -291,18 +291,34 @@ function dk(i){return 'cb_d'+i;}
 
 function migrate(){
   if(getApps().length>0)return;
+  // 기존 제목 찾기
   var t=localStorage.getItem('cb_title')||'';
   var d='';
-  var ks=Object.keys(localStorage);
-  for(var i=0;i<ks.length;i++){
-    var k=ks[i];
-    if(k.slice(0,4)==='cb3_'||k.slice(0,7)==='cb_data'){
-      var v=localStorage.getItem(k);
-      if(v&&v.length>2){d=v;if(!t&&k.slice(0,4)==='cb3_')t=k.slice(4);break;}
+  // 우선순위대로 데이터 탐색
+  var candidates=['cb3_main','cb3_과테 여행','cb3_과태여행','cb3_과태 여행','cb_data_0'];
+  for(var j=0;j<candidates.length;j++){
+    var v=localStorage.getItem(candidates[j]);
+    if(v&&v.length>2){d=v;break;}
+  }
+  // 위에서 못찾으면 전체 키 탐색
+  if(!d){
+    var ks=Object.keys(localStorage);
+    for(var i=0;i<ks.length;i++){
+      var k=ks[i];
+      if(k.slice(0,4)==='cb3_'||k.slice(0,7)==='cb_data'){
+        var v2=localStorage.getItem(k);
+        if(v2&&v2.length>2){
+          d=v2;
+          if(!t&&k.slice(0,4)==='cb3_')t=k.slice(4);
+          break;
+        }
+      }
     }
   }
+  // cb_title이 있으면 제목으로 사용
+  if(!t)t=localStorage.getItem('cb_title')||'';
   if(t||d){
-    setApps([{title:t||'기본 출납부',created:Date.now()}]);
+    setApps([{title:t||'과테 여행',created:Date.now()}]);
     localStorage.setItem(dk(0),d||'[]');
   }
 }
@@ -354,12 +370,26 @@ function doCreate(){
   var v=document.getElementById('t-inp').value.trim();
   if(!v){document.getElementById('t-inp').focus();return;}
   var apps=getApps();
+  var newIdx=apps.length;
   apps.push({title:v,created:Date.now()});
-  setApps(apps);ci=apps.length-1;launch(v);
+  setApps(apps);
+  ci=newIdx;
+  // 첫 앱 생성이면 기존 데이터 흡수 시도
+  if(newIdx===0){
+    var existing=localStorage.getItem(dk(0));
+    if(!existing||existing==='[]'){
+      var candidates=['cb3_main','cb3_과테 여행','cb3_과태여행','cb3_과태 여행'];
+      for(var j=0;j<candidates.length;j++){
+        var old=localStorage.getItem(candidates[j]);
+        if(old&&old.length>2){localStorage.setItem(dk(0),old);break;}
+      }
+    }
+  }
+  launch(v);
 }
 
 function launch(title){
-  document.getElementById('hdr-ttl').textContent='&#128210; '+title;
+  document.getElementById('hdr-ttl').textContent='📒 '+title;
   document.getElementById('page-title').textContent=title;
   document.getElementById('meta-title').content=title;
   document.getElementById('f-dt').value=new Date().toISOString().slice(0,10);
@@ -494,7 +524,7 @@ function confDel(){
 
 function doPrint(){
   var apps=getApps();var title=apps[ci]?apps[ci].title:'금전출납부';
-  document.getElementById('ph-ttl').textContent='&#128210; '+title;
+  document.getElementById('ph-ttl').textContent='📒 '+title;
   document.getElementById('ph-dt').textContent='출력일: '+new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
   var tI=0,tE=0,uB=0;
   entries.forEach(function(e){if(e.type==='income'){tI+=e.ua;uB+=e.ua;}else{tE+=e.ua;uB-=e.ua;}});
