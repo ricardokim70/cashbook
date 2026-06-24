@@ -398,6 +398,19 @@ function launch(title){
 }
 
 window.addEventListener('load',function(){
+  // ── 진단: localStorage 키 전체 표시 ──
+  var allK=Object.keys(localStorage);
+  var info='localStorage 키 목록 ('+allK.length+'개):\n';
+  allK.forEach(function(k){
+    var v=localStorage.getItem(k);
+    info+=k+' = '+(v?v.slice(0,40):'(비어있음)')+'\n';
+  });
+  if(confirm('진단 정보:\n\n'+info+'\n\n이 정보를 화면에 복사하시겠습니까?')){
+    // 진단 정보를 페이지에 표시
+    document.body.innerHTML='<div style="background:#fff;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;">'+info+'</div>';
+    return;
+  }
+
   migrate();
   var apps=getApps();
   var p=new URLSearchParams(location.search).get('app');
