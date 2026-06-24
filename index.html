@@ -398,9 +398,12 @@ function launch(title){
 }
 
 window.addEventListener('load',function(){
-
   migrate();
+  // cb_apps 있어도 cb_d{i} 없으면 빈 배열로 초기화
   var apps=getApps();
+  for(var _i=0;_i<apps.length;_i++){
+    if(!localStorage.getItem(dk(_i))){localStorage.setItem(dk(_i),'[]');}
+  }
   var p=new URLSearchParams(location.search).get('app');
   if(p!==null){var i=parseInt(p);if(!isNaN(i)&&apps[i]){ci=i;launch(apps[i].title);return;}}
   if(apps.length===1){ci=0;launch(apps[0].title);return;}
